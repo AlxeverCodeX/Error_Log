@@ -10,6 +10,7 @@ from typing import Optional, List
 
 import bcrypt
 import jwt
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -20,6 +21,8 @@ logger = logging.getLogger("error_log")
 
 # Resolve paths relative to this file so it works regardless of cwd
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Real environment variables win over values in .env
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 DB_PATH = os.getenv("DATABASE_PATH", os.path.join(BASE_DIR, "app.db"))
 INDEX_PATH = os.path.join(BASE_DIR, "index.html")
 LOGIN_PATH = os.path.join(BASE_DIR, "login.html")

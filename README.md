@@ -48,6 +48,7 @@ Error_Log/
 ├── index.html             # Error log page (glass + terminal theme)
 ├── login.html             # Sign in / create account page
 ├── app.db                 # SQLite DB — auto-created on first run, never committed
+├── .env.example           # template for .env (JWT_SECRET etc.); .env itself is git-ignored
 ├── requirements.txt       # runtime dependencies
 ├── requirements-dev.txt   # runtime + pytest + httpx
 ├── pyproject.toml         # package metadata, dev extra, pytest config
@@ -75,19 +76,15 @@ pip install -e .
 
 ### 2. Set a secret for signing login tokens
 
-Use any random string of **at least 32 characters**. Keep it the same across restarts, or everyone gets signed out.
+Copy `.env.example` to `.env` and put a random string of **at least 32 characters** after `JWT_SECRET=`. Generate one with:
 
 ```bash
-# macOS / Linux
-export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-```powershell
-# Windows PowerShell
-$env:JWT_SECRET = python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+`server.py` reads `.env` on startup, so the secret survives restarts. `.env` is git-ignored — never commit it. Real environment variables (for example on a hosting platform) take priority over `.env`.
 
-If `JWT_SECRET` is not set, the server still starts, but uses a random key and prints a warning. Tokens then stop working whenever the server restarts — fine for a quick try, not for real use.
+If `JWT_SECRET` is not set anywhere, the server still starts, but uses a random key and prints a warning. Tokens then stop working whenever the server restarts — fine for a quick try, not for real use.
 
 ### 3. Start the server
 
@@ -245,6 +242,8 @@ curl -X DELETE http://127.0.0.1:8000/api/logs/<id> -H "Authorization: Bearer $TO
 
 ## Configuration
 
+Set these in `.env` (see `.env.example`) or as real environment variables, which take priority.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `JWT_SECRET` | random per process (with a warning) | Key that signs login tokens. **Set it** — at least 32 characters, kept secret, same across restarts |
@@ -331,7 +330,7 @@ docker run -p 8000:8000 -v ./data:/app/data \
 
 | Problem | Fix |
 |---------|-----|
-| Everyone gets signed out after a restart | `JWT_SECRET` isn't set, so a new random key is used each start. Set it to a fixed value |
+| Everyone gets signed out after a restart | `JWT_SECRET` isn't set, so a new random key is used each start. Put a fixed value in `.env` |
 | Server won't start: `JWT_SECRET must be at least 32 characters long` | Use a longer secret, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `409 Username already taken` | Usernames are case-insensitive — `Alice` and `alice` are the same name |
 | Old entries disappeared after upgrading | They were created before accounts existed and have no owner. They're still in `app.db` but not shown to anyone |
