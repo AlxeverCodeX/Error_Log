@@ -241,6 +241,10 @@ def me(user: UserOut = Depends(get_current_user)):
     return user
 
 # ---------- Logs (each user sees only their own) ----------
+def require_log_fields(payload: LogIn):
+    if not payload.project.strip() or not payload.title.strip() or not payload.error.strip():
+        raise HTTPException(400, "project, title and error are required")
+
 # Every query matches on user_id as well as id, so another user's log id
 # behaves exactly like one that does not exist (404, never 403).
 @app.get("/api/logs", response_model=List[LogOut])
@@ -251,8 +255,7 @@ def list_logs(user: UserOut = Depends(get_current_user)):
 
 @app.post("/api/logs", response_model=LogOut, status_code=201)
 def create_log(payload: LogIn, user: UserOut = Depends(get_current_user)):
-    if not payload.project.strip() or not payload.title.strip() or not payload.error.strip():
-        raise HTTPException(400, "project, title and error are required")
+    require_log_fields(payload)
     log_id = gen_id()
     tags_json = json.dumps(payload.tags or [])
     date_val = payload.date or date_type.today().isoformat()
@@ -265,6 +268,7 @@ def create_log(payload: LogIn, user: UserOut = Depends(get_current_user)):
 
 @app.put("/api/logs/{log_id}", response_model=LogOut)
 def update_log(log_id: str, payload: LogIn, user: UserOut = Depends(get_current_user)):
+    require_log_fields(payload)
     with get_conn() as conn:
         cur = conn.execute("SELECT id FROM logs WHERE id=? AND user_id=?", (log_id, user.id))
         if not cur.fetchone():

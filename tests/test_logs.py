@@ -74,6 +74,21 @@ def test_owner_can_create_list_update_toggle_delete(client, alice):
     assert client.get("/api/logs", headers=alice).json() == []
 
 
+@pytest.mark.parametrize("field", ["project", "title", "error"])
+def test_create_rejects_blank_required_field(client, alice, field):
+    r = client.post("/api/logs", json=new_log(**{field: "   "}), headers=alice)
+    assert r.status_code == 400
+    assert client.get("/api/logs", headers=alice).json() == []
+
+
+@pytest.mark.parametrize("field", ["project", "title", "error"])
+def test_update_rejects_blank_required_field(client, alice, field):
+    log = create(client, alice)
+    r = client.put(f"/api/logs/{log['id']}", json=new_log(**{field: "   "}), headers=alice)
+    assert r.status_code == 400
+    assert client.get("/api/logs", headers=alice).json() == [log]
+
+
 def test_new_log_is_owned_by_caller_even_if_body_names_another_user(client, alice, bob, db_path):
     alice_id = client.get("/api/auth/me", headers=alice).json()["id"]
     log = client.post("/api/logs", json={**new_log(), "user_id": alice_id}, headers=bob).json()
