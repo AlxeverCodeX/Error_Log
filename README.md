@@ -56,7 +56,7 @@ One small app — **FastAPI + SQLite + vanilla HTML/CSS/JS** — with no build s
 | Database | SQLite 3 (single file, `sqlite3` stdlib, no ORM) |
 | Frontend | `index.html` + `login.html` — HTML + CSS + vanilla JS, no framework |
 | Tests    | pytest + FastAPI `TestClient`, GitHub Actions |
-| Deploy   | Docker (`python:3.11-slim`) |
+| Deploy   | Docker (`python:3.11-slim`); Netlify (pages) + Railway (backend) |
 
 ---
 
@@ -74,6 +74,9 @@ One small app — **FastAPI + SQLite + vanilla HTML/CSS/JS** — with no build s
 ├── Dockerfile              # production image
 ├── docker-entrypoint.sh    # fixes data-volume ownership, then drops to a non-root user
 ├── .dockerignore
+├── railway.toml            # Railway: build the Dockerfile, health check
+├── netlify.toml            # Netlify: build command, publish dir, security headers
+├── netlify-build.sh        # copies the pages to dist/ and proxies /api/* to BACKEND_URL
 ├── tests/                  # pytest suite
 ├── check_backend.py        # offline smoke check (temporary database)
 ├── live_server_check.py    # starts a real server on :8001 and checks it over HTTP
@@ -308,12 +311,32 @@ Store that secret somewhere safe; reusing it on the next `docker run` keeps ever
 3. **Disks:** add a disk with mount path `/data` (requires a paid instance type — on the free type your data is wiped on every deploy).
 4. **Health check path:** `/api/health`.
 
-### Railway
+### Netlify + Railway
 
-1. **New Project → Deploy from GitHub repo.** Railway detects the `Dockerfile`.
-2. **Variables:** add `JWT_SECRET`.
-3. Add a **Volume** to the service, mounted at `/data`.
-4. **Settings → Networking → Generate Domain.**
+Netlify hosts static sites only — it can't run Python or keep a SQLite file — so the app is split:
+
+- **Railway** runs the FastAPI backend (Docker image + a volume for the database).
+- **Netlify** serves the two pages and proxies every `/api/*` request to Railway, so the browser only ever talks to your Netlify address (no CORS, no frontend changes).
+
+The proxy is generated at build time by `netlify-build.sh` from the `BACKEND_URL` variable; `netlify.toml` and `railway.toml` hold the rest of the config. **Deploy the backend first** — Netlify needs its address.
+
+**1. Backend on Railway**
+
+1. [railway.com](https://railway.com) → **New Project → Deploy from GitHub repo** → pick this repo. `railway.toml` tells it to build the `Dockerfile` and health-check `/api/health`.
+2. **Variables:** add `JWT_SECRET` (generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+3. Right-click the service (or **⌘K / Ctrl+K → Add Volume**) → **Volume**, mount path `/data`.
+4. **Settings → Networking → Generate Domain.** Copy the URL, e.g. `https://error-log-production.up.railway.app`.
+5. Check it: open `<railway-url>/api/health` → `{"status":"ok"}`.
+
+**2. Pages on Netlify**
+
+1. [app.netlify.com](https://app.netlify.com) → **Add new site → Import an existing project → GitHub** → pick this repo. Leave the build settings as detected from `netlify.toml` (`sh netlify-build.sh`, publish `dist`).
+2. **Before the first deploy** (or under **Site configuration → Environment variables**): add `BACKEND_URL` = your Railway URL from step 1.4 (https, no trailing slash needed).
+3. Deploy, then open your `*.netlify.app` URL, create an account, and add an entry.
+
+If you change `BACKEND_URL` later, trigger **Deploys → Trigger deploy** so the proxy is regenerated. A build without `BACKEND_URL` fails on purpose rather than publishing a site whose API calls go nowhere.
+
+Your Railway URL also serves the full app directly; Netlify is just the public front door.
 
 ### Fly.io
 
@@ -335,7 +358,7 @@ Then `fly deploy`, and keep a single machine: `fly scale count 1`.
 
 ### Updating
 
-Push to `main`. CI runs; Render and Railway redeploy automatically from GitHub (Fly: run `fly deploy`). The database on the volume is kept, and tables are upgraded on startup.
+Push to `main`. CI runs; Render, Railway and Netlify redeploy automatically from GitHub (Fly: run `fly deploy`). The database on the volume is kept, and tables are upgraded on startup.
 
 ### Backups
 

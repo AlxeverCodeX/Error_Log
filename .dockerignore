@@ -12,5 +12,10 @@ __pycache__/
 .venv/
 venv/
 tests/
+dist/
+.netlify/
+netlify.toml
+netlify-build.sh
+railway.toml
 check_backend.py
 live_server_check.py

@@ -1,0 +1,13 @@
+# Netlify hosts the pages; the FastAPI backend runs on Railway.
+# Required: set BACKEND_URL under Site configuration > Environment variables,
+# e.g. https://your-app.up.railway.app — see README "Netlify + Railway".
+[build]
+  command = "sh netlify-build.sh"
+  publish = "dist"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
