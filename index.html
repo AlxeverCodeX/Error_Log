@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="terminal">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Log Book — Developer Error Tracker</title>
+<meta name="description" content="Simple error log book for developers to track errors, solutions and projects.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070d;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.09);
+  --line-hi:rgba(255,255,255,.18);
+  --text:#ecedf5;
+  --muted:#8b8fa8;
+  --violet:#8b5cf6;
+  --cyan:#22d3ee;
+  --pink:#f472b6;
+  --green:#34d399;
+  --amber:#fbbf24;
+  --orange:#fb923c;
+  --red:#f87171;
+  --radius:18px;
+  --sans:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:dark}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+code{font-family:var(--mono);font-size:.92em;color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* Glass surface + spotlight that follows the cursor */
+.glass{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 20px 50px -20px rgba(0,0,0,.6)}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(139,92,246,.16),transparent 60%)}
+.glass:hover::before{opacity:1}
+
+/* Header */
+header{position:sticky;top:0;z-index:30;padding:12px 20px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);background:rgba(7,7,13,.55);border-bottom:1px solid var(--line)}
+.header-inner{max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:13px;align-items:center}
+.logo{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:21px;background:linear-gradient(135deg,var(--violet),var(--cyan),var(--pink),var(--violet));background-size:300% 300%;animation:flow 8s linear infinite;box-shadow:0 8px 28px -6px rgba(139,92,246,.7),0 0 0 1px rgba(255,255,255,.25) inset}
+@keyframes flow{to{background-position:300% 0}}
+.brand h1{font-size:19px;font-weight:800;letter-spacing:-.03em}
+.brand p{font-size:12.5px;color:var(--muted);margin-top:1px}
+.head-right{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:var(--glass);border:1px solid var(--line);padding:7px 13px;border-radius:999px;display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.stat b{font-size:14px;color:var(--text);font-variant-numeric:tabular-nums}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;box-shadow:0 0 10px currentColor}
+.dot.total{background:var(--violet);color:var(--violet)}.dot.solved{background:var(--green);color:var(--green)}.dot.open{background:var(--amber);color:var(--amber)}
+.header-actions{display:flex;gap:8px}
+
+/* Buttons */
+.btn{appearance:none;font:inherit;color:var(--text);background:var(--glass);border:1px solid var(--line);padding:9px 15px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;gap:7px;align-items:center;justify-content:center;transition:transform .2s var(--ease),background .2s,border-color .2s,box-shadow .2s}
+.btn:hover{background:var(--glass-strong);border-color:var(--line-hi);transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.97)}
+.btn-small{padding:7px 11px;font-size:12px;border-radius:9px}
+.btn-ghost{background:transparent}
+.btn-primary{border:0;color:#fff;background:linear-gradient(120deg,var(--violet),#6366f1,var(--cyan),var(--violet));background-size:250% 100%;animation:flow 6s linear infinite;box-shadow:0 10px 30px -10px rgba(139,92,246,.9),0 1px 0 rgba(255,255,255,.3) inset}
+.btn-primary:hover{box-shadow:0 14px 36px -8px rgba(99,102,241,1),0 1px 0 rgba(255,255,255,.3) inset;background:linear-gradient(120deg,var(--violet),#6366f1,var(--cyan),var(--violet));background-size:250% 100%}
+.btn-danger{color:var(--red);border-color:rgba(248,113,113,.28);background:rgba(248,113,113,.08)}
+.btn-danger:hover{background:rgba(248,113,113,.16);border-color:rgba(248,113,113,.5)}
+
+/* Layout */
+.wrap{max-width:1240px;margin:24px auto 60px;padding:0 20px;display:grid;grid-template-columns:372px 1fr;gap:22px;align-items:start}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}.form-card{position:static!important}}
+
+/* Form */
+.form-card{position:sticky;top:92px}
+.card-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;min-height:56px}
+.card-head h2{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.card-body{padding:16px 20px 20px}
+label{font-size:12px;font-weight:600;color:#b4b7cc;display:block;margin:13px 0 6px}
+label:first-child{margin-top:0}
+input,textarea,select{width:100%;padding:10px 12px;color:var(--text);background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:11px;font-size:13.5px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s,background .2s}
+input::placeholder,textarea::placeholder{color:#5d6079}
+input:hover,textarea:hover,select:hover{border-color:var(--line-hi)}
+input:focus,textarea:focus,select:focus{border-color:var(--violet);background:rgba(0,0,0,.4);box-shadow:0 0 0 3px rgba(139,92,246,.22),0 0 24px -6px rgba(139,92,246,.5)}
+select option{background:#14141f;color:var(--text)}
+textarea{resize:vertical;min-height:78px;font-family:var(--mono);font-size:12.5px;line-height:1.6}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.8);cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:11px;color:var(--muted);margin-top:5px}
+.form-actions{display:flex;gap:8px;margin-top:18px}
+.form-actions .btn{flex:1}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;padding:12px}
+.search{flex:1;min-width:220px;position:relative}
+.search input{padding-left:38px}
+.search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.toolbar select{width:auto;cursor:pointer}
+
+/* Logs */
+.logs{display:grid;gap:14px}
+.empty{padding:48px 20px;text-align:center;color:var(--muted);border-style:dashed}
+.empty b{color:var(--text);font-size:15px}
+.empty .big{font-size:30px;margin-bottom:10px;display:inline-block;animation:float 4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-6px)}}
+.log{--accent:var(--green);overflow:hidden;transition:transform .3s var(--ease),border-color .3s,box-shadow .3s}
+.log::after{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--accent);box-shadow:0 0 16px var(--accent);opacity:.9}
+.log[data-sev=critical]{--accent:var(--red)}.log[data-sev=high]{--accent:var(--orange)}.log[data-sev=medium]{--accent:var(--amber)}.log[data-sev=low]{--accent:var(--green)}
+.log:hover{transform:translateY(-2px);border-color:var(--line-hi);box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 26px 60px -22px rgba(0,0,0,.8)}
+.log.solved .log-title{color:#c9ccdf}
+.log-top{padding:16px 18px 12px 22px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.log-main{flex:1;min-width:0}
+.badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--glass);color:#b4b7cc;display:inline-flex;gap:5px;align-items:center;max-width:100%}
+.badge-project{background:rgba(139,92,246,.14);border-color:rgba(139,92,246,.35);color:#c4b5fd}
+.badge-sev-critical{background:rgba(248,113,113,.12);color:#fca5a5;border-color:rgba(248,113,113,.35)}
+.badge-sev-high{background:rgba(251,146,60,.12);color:#fdba74;border-color:rgba(251,146,60,.35)}
+.badge-sev-medium{background:rgba(251,191,36,.1);color:#fcd34d;border-color:rgba(251,191,36,.3)}
+.badge-sev-low{background:rgba(52,211,153,.1);color:#6ee7b7;border-color:rgba(52,211,153,.3)}
+.badge-status-solved{background:rgba(52,211,153,.12);color:#6ee7b7;border-color:rgba(52,211,153,.35)}
+.badge-status-open{background:rgba(251,191,36,.1);color:#fcd34d;border-color:rgba(251,191,36,.3)}
+.badge-status-progress{background:rgba(34,211,238,.1);color:#67e8f9;border-color:rgba(34,211,238,.32)}
+.badge-fix{background:rgba(52,211,153,.08);color:#6ee7b7;border-color:rgba(52,211,153,.25)}
+.badge-nofix{background:rgba(248,113,113,.08);color:#fca5a5;border-color:rgba(248,113,113,.25)}
+.log-title{font-size:16px;font-weight:700;letter-spacing:-.02em;line-height:1.3}
+.log-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+.log-body{padding:0 18px 14px 22px;display:grid;gap:10px}
+.block{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.22)}
+.block-head{font-size:11px;font-weight:700;letter-spacing:.03em;padding:7px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line);color:#a3a7c0;display:flex;align-items:center;gap:6px}
+.block-content{padding:11px 13px;font-family:var(--mono);font-size:12.3px;color:#c5c8dc;white-space:pre-wrap;word-break:break-word;line-height:1.65;max-height:150px;overflow:auto}
+.block.solution{border-color:rgba(52,211,153,.28);background:rgba(52,211,153,.04)}
+.block.solution .block-head{background:rgba(52,211,153,.09);color:#6ee7b7;border-bottom-color:rgba(52,211,153,.22)}
+.block.pending{border-style:dashed}
+.block.pending .block-content{font-family:var(--sans)}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--glass);border:1px solid var(--line);color:#a3a7c0;transition:color .2s,border-color .2s}
+.tag:hover{color:var(--cyan);border-color:rgba(34,211,238,.4)}
+.log-actions{padding:10px 18px 12px 22px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,.14)}
+.log-id{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.muted{color:var(--muted)}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,16px);background:rgba(20,20,32,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-hi);color:var(--text);padding:11px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 30px -8px rgba(139,92,246,.6);opacity:0;pointer-events:none;transition:opacity .3s,transform .4s var(--ease);z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* One orchestrated entrance, first load only */
+.enter{animation:rise .6s var(--ease) both;animation-delay:calc(var(--i,0)*55ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
+
+/* ===== Theme: Cyber Terminal ===== */
+html[data-theme=terminal]{--bg:#04070a;--glass:rgba(10,24,18,.55);--glass-strong:rgba(20,50,36,.6);--line:rgba(57,255,136,.18);--line-hi:rgba(57,255,136,.45);--text:#c9f7dd;--muted:#5f8f78;--radius:6px;--sans:var(--mono);--violet:#39ff88;--cyan:#22e5ff;--pink:#ff4fd8}
+[data-theme=terminal] .grain{opacity:1;background-image:repeating-linear-gradient(0deg,rgba(57,255,136,.04) 0 1px,transparent 1px 3px)}
+[data-theme=terminal] .glass{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 0 0 1px rgba(57,255,136,.04) inset,0 0 30px -14px rgba(57,255,136,.35)}
+[data-theme=terminal] .glass::before{background:radial-gradient(380px circle at var(--mx,50%) var(--my,0%),rgba(57,255,136,.09),transparent 60%)}
+[data-theme=terminal] header{background:rgba(4,7,10,.82)}
+[data-theme=terminal] .brand h1::before{content:"> ";color:#39ff88}
+[data-theme=terminal] .brand h1::after{content:"_";color:#39ff88;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+[data-theme=terminal] .logo{background:#39ff88;animation:none;border-radius:8px;box-shadow:0 0 24px -2px rgba(57,255,136,.7)}
+[data-theme=terminal] label{color:#8fd9b0}
+[data-theme=terminal] input,[data-theme=terminal] textarea,[data-theme=terminal] select,[data-theme=terminal] .btn,[data-theme=terminal] .badge,[data-theme=terminal] .tag,[data-theme=terminal] .stat{border-radius:4px}
+[data-theme=terminal] input,[data-theme=terminal] textarea,[data-theme=terminal] select{background:rgba(0,0,0,.55)}
+[data-theme=terminal] input::placeholder,[data-theme=terminal] textarea::placeholder{color:#3d6652}
+[data-theme=terminal] input:focus,[data-theme=terminal] textarea:focus,[data-theme=terminal] select:focus{box-shadow:0 0 0 2px rgba(57,255,136,.3),0 0 22px -4px rgba(57,255,136,.55)}
+[data-theme=terminal] select option{background:#07110c}
+[data-theme=terminal] input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.9) sepia(1) hue-rotate(80deg)}
+[data-theme=terminal] .btn-primary,[data-theme=terminal] .btn-primary:hover{background:#39ff88;color:#021208;animation:none;font-weight:700;box-shadow:0 0 22px -4px rgba(57,255,136,.8)}
+[data-theme=terminal] .btn-primary:hover{background:#6bffa8;box-shadow:0 0 30px -2px rgba(57,255,136,.95)}
+[data-theme=terminal] .badge-project{background:rgba(57,255,136,.1);color:#7dffb3;border-color:rgba(57,255,136,.4)}
+[data-theme=terminal] .log::after{width:2px;border-radius:0}
+[data-theme=terminal] .block-head{color:#7fbf9c}
+[data-theme=terminal] .block-content{color:#b5eccb}
+[data-theme=terminal] .tag{color:#7dffb3}
+[data-theme=terminal] .tag:hover{color:#22e5ff;border-color:rgba(34,229,255,.5)}
+[data-theme=terminal] .toast{border-radius:6px;border-color:rgba(57,255,136,.5);box-shadow:0 0 30px -6px rgba(57,255,136,.5)}
+[data-theme=terminal] ::-webkit-scrollbar-thumb{background:rgba(57,255,136,.25)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo">🐛</div>
+      <div>
+        <h1>Error Log Book</h1>
+        <p>Log errors, fixes & project notes — backed by SQLite</p>
+      </div>
+    </div>
+    <div class="head-right">
+      <div class="stats" id="stats"></div>
+      <div class="header-actions">
+        <button class="btn btn-small" onclick="exportJSON()" title="Export all logs as JSON">⬇ Export</button>
+        <label class="btn btn-small" style="cursor:pointer;margin:0;color:var(--text)">⬆ Import <input type="file" id="importFile" accept=".json" hidden></label>
+        <button class="btn btn-small btn-danger" onclick="clearAll()">Clear all</button>
+      </div>
+      <div class="header-actions">
+        <span class="stat" title="Signed in as"><span class="dot solved"></span> <b id="currentUser">…</b></span>
+        <button class="btn btn-small btn-ghost" onclick="logout()">Log out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- FORM -->
+  <div class="glass form-card">
+    <div class="card-head">
+      <h2><span id="formTitle">➕ New Error Entry</span></h2>
+      <button class="btn btn-small btn-ghost" onclick="resetForm()" id="cancelEditBtn" style="display:none">Cancel</button>
+    </div>
+    <div class="card-body">
+      <form id="logForm" onsubmit="handleSubmit(event)">
+        <label for="project">Project Name</label>
+        <input id="project" list="projectList" placeholder="e.g. payment-service, portfolio, api-v2" required>
+        <datalist id="projectList"></datalist>
+        <div class="hint">Type or pick an existing project</div>
+
+        <label for="title">Error / Issue Title *</label>
+        <input id="title" placeholder="e.g. CORS blocked on /api/login" required maxlength="120">
+
+        <div class="grid2">
+          <div>
+            <label for="severity">Severity</label>
+            <select id="severity">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div>
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="open">Open</option>
+              <option value="in-progress">In Progress</option>
+              <option value="solved">Solved ✓</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="error">Error Details *</label>
+        <textarea id="error" placeholder="What happened? Paste stack trace, error message, steps to reproduce..." required></textarea>
+
+        <label for="solution">Solution / Fix <span class="muted" style="font-weight:400">(optional if still open)</span></label>
+        <textarea id="solution" placeholder="How did you solve it? Commands, code snippet, links..."></textarea>
+
+        <div class="grid2">
+          <div>
+            <label for="tags">Tags</label>
+            <input id="tags" placeholder="react, cors, docker">
+            <div class="hint">Comma separated</div>
+          </div>
+          <div>
+            <label for="date">Date</label>
+            <input id="date" type="date">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="submitBtn">Save Entry</button>
+          <button type="button" class="btn" onclick="resetForm()">Reset</button>
+        </div>
+      </form>
+      <p class="hint" style="margin-top:14px;text-align:center">
+  <code>FastAPI</code> on the backend, <code>SQLite</code> for storage. Nothing fancy.
+</p>
+
+    </div>
+  </div>
+
+  <!-- LOGS -->
+  <div>
+    <div class="glass toolbar">
+      <div class="search">
+        <span>🔍</span>
+        <input id="q" placeholder="Search title, project, error or solution..." oninput="render()">
+      </div>
+      <select id="fProject" onchange="render()"><option value="">All projects</option></select>
+      <select id="fStatus" onchange="render()">
+        <option value="">All status</option>
+        <option value="open">Open</option>
+        <option value="in-progress">In Progress</option>
+        <option value="solved">Solved</option>
+      </select>
+      <select id="fSeverity" onchange="render()">
+        <option value="">All severity</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="sort" onchange="render()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="project">Project A-Z</option>
+      </select>
+    </div>
+
+    <div id="logs" class="logs"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const API = '/api';
+const TOKEN_KEY = 'error_log_token';
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    location.replace('/login');
+    throw new Error('Please sign in to continue');
+  }
+  const headers = new Headers(options.headers || {});
+  headers.set('Authorization', 'Bearer ' + token);
+  const res = await fetch(url, {...options, headers});
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    location.replace('/login');
+    throw new Error('Your session expired. Please sign in again');
+  }
+  return res;
+}
+let logs = [];
+let editingId = null;
+let firstRender = true;
+
+const $ = id => document.getElementById(id);
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
+
+// Cursor spotlight on glass surfaces
+document.addEventListener('pointermove', e=>{
+  const g = e.target.closest && e.target.closest('.glass');
+  if(!g) return;
+  const r = g.getBoundingClientRect();
+  g.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  g.style.setProperty('--my', (e.clientY - r.top) + 'px');
+});
+
+function logout(){
+  localStorage.removeItem(TOKEN_KEY);
+  location.replace('/login');
+}
+async function loadCurrentUser(){
+  try{
+    const res = await apiFetch(`${API}/auth/me`);
+    if(res.ok) $('currentUser').textContent = (await res.json()).username;
+  }catch(e){ console.error(e) }
+}
+
+async function apiGetLogs(){
+  const res = await apiFetch(`${API}/logs`);
+  if(!res.ok) throw new Error('Failed to fetch logs');
+  return res.json();
+}
+async function load(){
+  try{
+    logs = await apiGetLogs();
+  }catch(e){
+    console.error(e);
+    toast(e.message || 'Could not load logs');
+    logs = [];
+  }
+  refreshProjectFilters();
+  updateStats();
+  render();
+}
+
+function refreshProjectFilters(){
+  const projects=[...new Set(logs.map(l=>l.project))].sort((a,b)=>a.localeCompare(b));
+  const datalist=$('projectList'); datalist.innerHTML = projects.map(p=>`<option value="${escapeHtml(p)}">`).join('');
+  const sel=$('fProject'); const cur=sel.value;
+  sel.innerHTML = '<option value="">All projects</option>' + projects.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  sel.value=cur;
+  if(!datalist.innerHTML) sel.innerHTML='<option value="">All projects</option>';
+}
+
+function updateStats(){
+  const total=logs.length;
+  const solved=logs.filter(l=>l.status==='solved').length;
+  const open=total - solved;
+  const projects=new Set(logs.map(l=>l.project)).size;
+  $('stats').innerHTML = `
+    <div class="stat"><span class="dot total"></span> <b>${total}</b> total</div>
+    <div class="stat"><span class="dot solved"></span> <b>${solved}</b> solved</div>
+    <div class="stat"><span class="dot open"></span> <b>${open}</b> open</div>
+    <div class="stat">📁 <b>${projects}</b> projects</div>
+  `;
+}
+
+async function handleSubmit(e){
+  e.preventDefault();
+  const payload={
+    project: $('project').value.trim(),
+    title: $('title').value.trim(),
+    severity: $('severity').value,
+    status: $('status').value,
+    error: $('error').value.trim(),
+    solution: $('solution').value.trim(),
+    tags: $('tags').value.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean).slice(0,10),
+    date: $('date').value || new Date().toISOString().slice(0,10)
+  };
+  if(!payload.project || !payload.title || !payload.error){ toast('Fill required fields'); return; }
+  try{
+    let res;
+    if(editingId){
+      res = await apiFetch(`${API}/logs/${editingId}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      if(!res.ok) throw new Error(await res.text());
+      toast('Entry updated ✓');
+    } else {
+      res = await apiFetch(`${API}/logs`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      if(!res.ok) throw new Error(await res.text());
+      toast('Entry saved ✓');
+    }
+    resetForm();
+    await load();
+  }catch(err){
+    toast('Save failed: '+err.message);
+  }
+}
+
+function resetForm(){
+  editingId=null;
+  $('logForm').reset();
+  $('date').value = new Date().toISOString().slice(0,10);
+  $('severity').value='medium';
+  $('status').value='open';
+  $('formTitle').textContent='➕ New Error Entry';
+  $('submitBtn').textContent='Save Entry';
+  $('cancelEditBtn').style.display='none';
+}
+function edit(id){
+  const l=logs.find(x=>x.id===id); if(!l) return;
+  editingId=id;
+  $('project').value=l.project;
+  $('title').value=l.title;
+  $('severity').value=l.severity;
+  $('status').value=l.status;
+  $('error').value=l.error;
+  $('solution').value=l.solution;
+  $('tags').value=(l.tags||[]).join(', ');
+  $('date').value=l.date;
+  $('formTitle').textContent='✏️ Editing Entry';
+  $('submitBtn').textContent='Update Entry';
+  $('cancelEditBtn').style.display='inline-flex';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+async function del(id){
+  if(!confirm('Delete this entry?')) return;
+  try{
+    const res = await apiFetch(`${API}/logs/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error(await res.text());
+    toast('Deleted');
+    await load();
+  }catch(err){ toast('Delete failed: '+err.message)}
+}
+async function toggleSolved(id){
+  try{
+    const res = await apiFetch(`${API}/logs/${id}/toggle`, {method:'PATCH'});
+    if(!res.ok) throw new Error(await res.text());
+    const updated = await res.json();
+    toast(updated.status==='solved' ? 'Marked as solved ✓' : 'Marked as open');
+    await load();
+  }catch(err){ toast('Toggle failed: '+err.message)}
+}
+function copyEntry(id){
+  const l=logs.find(x=>x.id===id);
+  const text=`[${l.project}] ${l.title} (${l.severity}/${l.status}) — ${l.date}\n\nError:\n${l.error}\n\nSolution:\n${l.solution||'(no solution yet)'}\n\nTags: ${(l.tags||[]).join(', ')}`;
+  navigator.clipboard.writeText(text).then(()=>toast('Copied to clipboard'),()=>toast('Copy failed'));
+}
+
+function render(){
+  const q=$('q').value.trim().toLowerCase();
+  const fp=$('fProject').value;
+  const fs=$('fStatus').value;
+  const sev=$('fSeverity').value;
+  const sort=$('sort').value;
+
+  let filtered=[...logs];
+  if(q){
+    filtered=filtered.filter(l=> [l.title,l.project,l.error,l.solution,(l.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
+  }
+  if(fp) filtered=filtered.filter(l=>l.project===fp);
+  if(fs) filtered=filtered.filter(l=>l.status===fs);
+  if(sev) filtered=filtered.filter(l=>l.severity===sev);
+
+  if(sort==='newest') filtered.sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  else if(sort==='oldest') filtered.sort((a,b)=> a.date.localeCompare(b.date));
+  else if(sort==='project') filtered.sort((a,b)=> a.project.localeCompare(b.project));
+
+  const container=$('logs');
+  if(!filtered.length){
+    container.innerHTML=`<div class="glass empty"><div class="big">🔎</div><br><b>No entries found</b><p style="margin-top:6px">Try adjusting filters or add a new error on the left.</p><button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('q').value='';document.getElementById('fProject').value='';document.getElementById('fStatus').value='';document.getElementById('fSeverity').value='';render()">Clear filters</button></div>`;
+    return;
+  }
+
+  const enter = firstRender; firstRender = false;
+  container.innerHTML = filtered.map((l,i)=>`
+    <article class="glass log ${l.status==='solved'?'solved':''} ${enter?'enter':''}" data-sev="${escapeHtml(l.severity)}" style="--i:${Math.min(i,10)}">
+      <div class="log-top">
+        <div class="log-main">
+          <div class="badges">
+            <span class="badge badge-project">📁 ${escapeHtml(l.project)}</span>
+            <span class="badge badge-sev-${l.severity}">${sevIcon(l.severity)} ${escapeHtml(l.severity)}</span>
+            <span class="badge badge-status-${l.status==='in-progress'?'progress':l.status}">${statusIcon(l.status)} ${escapeHtml(l.status)}</span>
+            ${l.solution ? '<span class="badge badge-fix">✓ has fix</span>' : '<span class="badge badge-nofix">• needs fix</span>'}
+          </div>
+          <div class="log-title">${escapeHtml(l.title)}</div>
+          <div class="log-meta"><span>📅 ${escapeHtml(l.date)}</span><span>•</span><span>${escapeHtml(timeAgo(l.date))}</span></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-small" onclick="toggleSolved('${l.id}')" title="Toggle solved">${l.status==='solved'?'↩ Open':'✓ Solve'}</button>
+        </div>
+      </div>
+      <div class="log-body">
+        <div class="block">
+          <div class="block-head">🐞 Error Details</div>
+          <div class="block-content">${escapeHtml(l.error)}</div>
+        </div>
+        ${l.solution ? `<div class="block solution"><div class="block-head">✅ Solution / Fix</div><div class="block-content">${escapeHtml(l.solution)}</div></div>` : `<div class="block pending"><div class="block-head">💡 Solution — not yet</div><div class="block-content muted">No solution logged yet. Edit to add how you fixed it.</div></div>`}
+        ${(l.tags&&l.tags.length)? `<div class="tags">${l.tags.map(t=>`<span class="tag">#${escapeHtml(t)}</span>`).join('')}</div>`:''}
+      </div>
+      <div class="log-actions">
+        <button class="btn btn-small" onclick="edit('${l.id}')">✏️ Edit</button>
+        <button class="btn btn-small" onclick="copyEntry('${l.id}')">⎘ Copy</button>
+        <button class="btn btn-small btn-danger" onclick="del('${l.id}')">🗑 Delete</button>
+        <span class="log-id">ID: ${l.id.slice(0,8)}</span>
+      </div>
+    </article>
+  `).join('');
+}
+function sevIcon(s){ return s==='critical'?'🔴':s==='high'?'🟠':s==='medium'?'🟡':'🟢'}
+function statusIcon(s){ return s==='solved'?'✓':s==='in-progress'?'◐':'○'}
+function timeAgo(iso){
+  const d=new Date(iso); const now=new Date(); const diff=Math.floor((now - d)/86400000);
+  if(diff===0) return 'today'; if(diff===1) return 'yesterday'; if(diff<30) return diff+' days ago'; if(diff<365) return Math.floor(diff/30)+' months ago'; return Math.floor(diff/365)+' years ago';
+}
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(logs,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='error-log-book-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href); toast('Exported JSON');
+}
+async function clearAll(){
+  if(!logs.length) return toast('Already empty');
+  if(!confirm('Delete ALL '+logs.length+' entries? This cannot be undone.')) return;
+  try{
+    const res = await apiFetch(`${API}/logs`, {method:'DELETE'});
+    if(!res.ok) throw new Error(await res.text());
+    toast('All cleared');
+    await load();
+  }catch(err){ toast('Clear failed: '+err.message)}
+}
+$('importFile').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data)) throw new Error('Invalid format');
+      const valid=data.filter(x=>x.title && x.project);
+      if(!valid.length) throw new Error('No valid entries');
+      if(!confirm('Import '+valid.length+' entries? This will add to current logs.')) return;
+      for(const x of valid){
+        const payload={ project:String(x.project), title:String(x.title), severity:['low','medium','high','critical'].includes(x.severity)?x.severity:'medium', status:['open','in-progress','solved'].includes(x.status)?x.status:'open', error:String(x.error||''), solution:String(x.solution||''), tags:Array.isArray(x.tags)?x.tags:[], date:x.date||new Date().toISOString().slice(0,10)};
+        const res = await apiFetch(`${API}/logs`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not import entry');
+        }
+      }
+      toast('Imported '+valid.length+' entries');
+      await load();
+    }catch(err){ alert('Import failed: '+err.message)}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+// init
+$('date').value=new Date().toISOString().slice(0,10);
+loadCurrentUser();
+load();
+</script>
+</body>
+</html>

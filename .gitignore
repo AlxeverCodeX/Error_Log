@@ -1,0 +1,14 @@
+# The database holds accounts and password hashes, so it is never committed.
+# It is created automatically on first run.
+*.db
+*.db-journal
+*.db.bak
+
+# Runtime artefacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+.env

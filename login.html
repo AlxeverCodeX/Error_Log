@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="terminal">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Error Log Book</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070d; --glass:rgba(255,255,255,.045); --glass-strong:rgba(255,255,255,.075); --line:rgba(255,255,255,.09); --line-hi:rgba(255,255,255,.18); --text:#ecedf5; --muted:#8b8fa8; --violet:#8b5cf6; --cyan:#22d3ee; --green:#34d399; --red:#f87171; --radius:18px; --sans:"Plus Jakarta Sans",system-ui,sans-serif; --mono:"JetBrains Mono",monospace; --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:grid;place-items:center;padding:20px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.glass{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 20px 50px -20px rgba(0,0,0,.6)}
+.card{width:100%;max-width:420px;padding:28px}
+.logo{width:48px;height:48px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,var(--violet),var(--cyan),#f472b6,var(--violet));background-size:300% 300%;animation:flow 8s linear infinite;margin:0 auto 16px;box-shadow:0 8px 28px -6px rgba(139,92,246,.7)}
+@keyframes flow{to{background-position:300% 0}}
+h1{font-size:22px;font-weight:800;letter-spacing:-.03em;text-align:center}
+.sub{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
+label{font-size:12px;font-weight:600;color:#b4b7cc;display:block;margin:14px 0 6px}
+input{width:100%;padding:11px 12px;color:var(--text);background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:11px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
+input:focus{border-color:var(--violet);background:rgba(0,0,0,.4);box-shadow:0 0 0 3px rgba(139,92,246,.22)}
+.btn{width:100%;appearance:none;font:inherit;color:#fff;background:linear-gradient(120deg,var(--violet),#6366f1,var(--cyan),var(--violet));background-size:250% 100%;animation:flow 6s linear infinite;border:0;padding:11px 15px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;margin-top:18px;box-shadow:0 10px 30px -10px rgba(139,92,246,.9)}
+.btn:hover{box-shadow:0 14px 36px -8px rgba(99,102,241,1)}
+.btn:active{transform:scale(.98)}
+.hint{font-size:11.5px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+.hint code{font-family:var(--mono);color:var(--cyan);font-size:11px}
+.error{margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:#fca5a5;font-size:13px;display:none}
+.error.show{display:block}
+.reg{margin-top:16px;text-align:center;font-size:13px;color:var(--muted)}
+.reg a{color:var(--cyan);text-decoration:none;font-weight:600}
+.reg a:hover{text-decoration:underline}
+html[data-theme=terminal]{--bg:#04070a;--glass:rgba(10,24,18,.55);--line:rgba(57,255,136,.18);--line-hi:rgba(57,255,136,.45);--text:#c9f7dd;--muted:#5f8f78;--radius:6px;--violet:#39ff88;--cyan:#22e5ff}
+[data-theme=terminal] .grain{opacity:1;background-image:repeating-linear-gradient(0deg,rgba(57,255,136,.04) 0 1px,transparent 1px 3px)}
+[data-theme=terminal] input{border-radius:4px;background:rgba(0,0,0,.55)}
+[data-theme=terminal] .btn{border-radius:4px;background:#39ff88;color:#021208;animation:none}
+[data-theme=terminal] .btn:hover{background:#6bffa8}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="glass card">
+  <div class="logo">🐛</div>
+  <h1>Welcome back</h1>
+  <p class="sub">Sign in to Error Log Book</p>
+  <div id="err" class="error"></div>
+  <form id="loginForm" onsubmit="handleLogin(event)">
+    <label for="username">Username</label>
+    <input id="username" placeholder="your-username" required autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" placeholder="••••••••" required autocomplete="current-password">
+    <button type="submit" class="btn" id="btnLogin">Sign In →</button>
+  </form>
+  <p class="hint">Your error log is private. Only you can see the entries you add.</p>
+  <div class="reg"><a href="#" onclick="toggleReg(event)">New here? Create an account</a></div>
+  <form id="regForm" onsubmit="handleRegister(event)" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:14px">
+    <label for="ruser">Choose a username</label>
+    <input id="ruser" placeholder="your-username" required autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_.\-]+" title="3 to 32 characters: letters, numbers, _ . -">
+    <label for="rpass">Choose a password</label>
+    <input id="rpass" type="password" placeholder="••••••••" required autocomplete="new-password" minlength="8">
+    <p class="hint" style="text-align:left;margin-top:6px">Username: 3–32 letters, numbers, <code>_</code> <code>.</code> <code>-</code>. Password: at least 8 characters.</p>
+    <button type="submit" class="btn" id="btnRegister" style="background:var(--glass);border:1px solid var(--line);color:var(--text);animation:none">Create account &amp; sign in</button>
+    <p class="hint"><a href="#" onclick="toggleReg(event)">Back to login</a></p>
+  </form>
+</div>
+<script>
+const TOKEN_KEY='error_log_token';
+function showErr(m){const e=document.getElementById('err');e.textContent=m;e.classList.add('show')}
+function clearErr(){document.getElementById('err').classList.remove('show')}
+// FastAPI returns a string for 401/409 and a list of field errors for 422
+function errorText(data,fallback){
+  if(typeof data.detail==='string') return data.detail;
+  if(Array.isArray(data.detail)) return data.detail.map(d=>(d.loc?d.loc[d.loc.length-1]+': ':'')+d.msg).join('. ');
+  return fallback;
+}
+async function signIn(u,p){
+  const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({username:u,password:p})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(errorText(data,'Login failed'));
+  localStorage.setItem(TOKEN_KEY,data.access_token);
+  location.href='/';
+}
+async function handleLogin(e){
+  e.preventDefault();clearErr();
+  const btn=document.getElementById('btnLogin');btn.textContent='Signing in...';btn.disabled=true;
+  try{
+    await signIn(document.getElementById('username').value.trim(), document.getElementById('password').value);
+  }catch(err){showErr(err.message)}
+  finally{btn.textContent='Sign In →';btn.disabled=false}
+}
+function toggleReg(e){e.preventDefault();clearErr();const f=document.getElementById('regForm');f.style.display=f.style.display==='none'?'block':'none'}
+async function handleRegister(e){
+  e.preventDefault();clearErr();
+  const btn=document.getElementById('btnRegister');btn.disabled=true;
+  const u=document.getElementById('ruser').value.trim(), p=document.getElementById('rpass').value;
+  try{
+    const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(errorText(data,'Registration failed'));
+    await signIn(u,p);
+  }catch(err){showErr(err.message)}
+  finally{btn.disabled=false}
+}
+// if already logged in, go home
+(async()=>{
+  const t=localStorage.getItem(TOKEN_KEY);
+  if(!t) return;
+  try{const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}}); if(r.ok) location.href='/'; else localStorage.removeItem(TOKEN_KEY)}catch{}
+})();
+</script>
+</body>
+</html>
