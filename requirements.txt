@@ -5,4 +5,4 @@ uvicorn==0.48.0
 bcrypt==5.0.0
 PyJWT==2.15.1
 python-multipart==0.0.30
-python-dotenv==1.2.3
+python-dotenv==1.2.4
