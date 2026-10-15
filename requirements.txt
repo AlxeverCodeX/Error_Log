@@ -1,6 +1,8 @@
-fastapi>=0.110.0
-uvicorn>=0.27.0
-bcrypt>=4.1.0
-PyJWT>=2.8.0
-python-multipart>=0.0.9
-python-dotenv>=1.0
+# Exact versions the test suite passes with; used by Docker and CI.
+# Version ranges for development live in pyproject.toml.
+fastapi==0.141.1
+uvicorn==0.48.0
+bcrypt==5.0.0
+PyJWT==2.15.1
+python-multipart==0.0.30
+python-dotenv==1.2.3

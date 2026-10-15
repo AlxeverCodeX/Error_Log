@@ -1,0 +1,16 @@
+# Only server.py, the two HTML pages, the entrypoint and requirements.txt belong in the image.
+.git
+.github
+.env
+.env.*
+*.db
+*.db-journal
+*.db.bak
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+tests/
+check_backend.py
+live_server_check.py

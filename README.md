@@ -1,176 +1,178 @@
 # Error Log Book
 
-> A beautiful, fast, and simple error tracker for developers. Log bugs, document fixes, and never solve the same error twice.
+> A fast, simple error tracker for developers. Log bugs, document fixes, and never solve the same error twice.
 
 ![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
-Single-folder app — **SQLite + FastAPI + vanilla HTML/CSS/JS** in one directory. Copy, install, run.
-
 Anyone who opens the site can create an account. Each account gets its own private error log: you only ever see, edit, or delete your own entries.
+
+One small app — **FastAPI + SQLite + vanilla HTML/CSS/JS** — with no build step and no external services. Run it locally with Python, or deploy the Docker image anywhere that gives you a persistent disk.
+
+---
+
+## Contents
+
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Project structure](#project-structure)
+- [Run locally](#run-locally)
+- [Using the app](#using-the-app)
+- [Configuration](#configuration)
+- [API reference](#api-reference)
+- [Database](#database)
+- [Tests and CI](#tests-and-ci)
+- [Push to GitHub](#push-to-github)
+- [Deployment](#deployment)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ---
 
 ## Features
 
-- **Personal accounts** — sign up with a username and password, then sign in; your entries are private to you
+- **Personal accounts** — sign up with a username and password; your entries are private to you
 - **Create / Edit / Delete** error entries with project, severity, status, tags & date
 - **Toggle Solved** with one click — tracks `open` / `in-progress` / `solved`
 - **Search & Filter** — by text, project, status, severity + sort by newest/oldest/project
 - **Stats header** — total / solved / open / project count at a glance
 - **Glass + Terminal themes** — modern glassmorphism with a cyber `terminal` variant
-- **Export / Import JSON** — backup or migrate your logs in one file
-- **Zero setup database** — `app.db` and its tables are created automatically on first run
-- **Fully offline** — no external DB or cloud service required
-- **Standalone** — works regardless of `cwd` (`BASE_DIR` relative paths + `DATABASE_PATH` override)
+- **Export / Import JSON** — back up or move your logs in one file
+- **Zero-setup database** — `app.db` and its tables are created automatically on first start
+- **Brute-force protection** — repeated failed sign-ins are temporarily blocked
+- **Production-ready container** — non-root, health-checked, refuses to start without a secret
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer    | Technology |
 |----------|------------|
 | Backend  | Python 3.11+, FastAPI, Pydantic, Uvicorn |
 | Auth     | bcrypt password hashing, PyJWT bearer tokens (HS256), FastAPI `OAuth2PasswordBearer` |
-| Database | SQLite 3 (single file `app.db`, `sqlite3` stdlib, no ORM) |
-| Frontend | `index.html` + `login.html` — HTML + CSS + vanilla JS, no build step, no framework |
-| Tests    | pytest + FastAPI `TestClient` |
+| Database | SQLite 3 (single file, `sqlite3` stdlib, no ORM) |
+| Frontend | `index.html` + `login.html` — HTML + CSS + vanilla JS, no framework |
+| Tests    | pytest + FastAPI `TestClient`, GitHub Actions |
+| Deploy   | Docker (`python:3.11-slim`) |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
-Error_Log/
-├── server.py              # FastAPI app: auth, SQLite logic, serves the two pages
-├── index.html             # Error log page (glass + terminal theme)
-├── login.html             # Sign in / create account page
-├── app.db                 # SQLite DB — auto-created on first run, never committed
-├── .env.example           # template for .env (JWT_SECRET etc.); .env itself is git-ignored
-├── requirements.txt       # runtime dependencies
-├── requirements-dev.txt   # runtime + pytest + httpx
-├── pyproject.toml         # package metadata, dev extra, pytest config
-├── tests/                 # pytest suite (auth helpers, auth routes, per-user logs)
-├── check_backend.py       # Offline smoke check (TestClient, temporary DB)
-├── live_server_check.py   # Live check — spawns uvicorn on :8001 with a temporary DB
-└── README.md              # this file
+.
+├── server.py               # FastAPI app: auth, rate limiting, SQLite, serves both pages
+├── index.html              # Error log page
+├── login.html              # Sign in / create account page
+├── requirements.txt        # pinned runtime dependencies (used by Docker and CI)
+├── requirements-dev.txt    # runtime + pytest + httpx
+├── pyproject.toml          # project metadata and pytest config
+├── .env.example            # template for your local .env
+├── Dockerfile              # production image
+├── docker-entrypoint.sh    # fixes data-volume ownership, then drops to a non-root user
+├── .dockerignore
+├── tests/                  # pytest suite
+├── check_backend.py        # offline smoke check (temporary database)
+├── live_server_check.py    # starts a real server on :8001 and checks it over HTTP
+├── .github/
+│   ├── workflows/ci.yml    # runs tests and builds/smoke-tests the image on every push
+│   └── dependabot.yml      # weekly dependency update PRs
+└── LICENSE
 ```
+
+`app.db` (your data) and `.env` (your secret) are created locally and are **never committed** — see `.gitignore`.
 
 ---
 
-## Quick Start
+## Run locally
 
-### 1. Install dependencies
+Requires **Python 3.11+**.
 
 ```bash
-# option A — requirements.txt
+git clone https://github.com/<your-username>/error-log-book.git
+cd error-log-book
+
+python -m venv .venv
+# Windows:  .venv\Scripts\activate
+# macOS / Linux:  source .venv/bin/activate
+
 pip install -r requirements.txt
-
-# option B — editable install via pyproject.toml
-pip install -e .
 ```
 
-> Requires Python `>=3.11`.
-
-### 2. Set a secret for signing login tokens
-
-Copy `.env.example` to `.env` and put a random string of **at least 32 characters** after `JWT_SECRET=`. Generate one with:
+Create your `.env` from the template and fill in a secret of **at least 32 characters**:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(48))"   # paste the output after JWT_SECRET=
 ```
 
-`server.py` reads `.env` on startup, so the secret survives restarts. `.env` is git-ignored — never commit it. Real environment variables (for example on a hosting platform) take priority over `.env`.
-
-If `JWT_SECRET` is not set anywhere, the server still starts, but uses a random key and prints a warning. Tokens then stop working whenever the server restarts — fine for a quick try, not for real use.
-
-### 3. Start the server
+Start the server:
 
 ```bash
-# recommended
-uvicorn server:app --reload
-
-# alternative
-python -m uvicorn server:app --host 127.0.0.1 --port 8000
+uvicorn server:app --reload    # auto-reloads when you edit code
+# or
+python server.py               # uses HOST / PORT, default 127.0.0.1:8000
 ```
 
-Open **http://127.0.0.1:8000**. You'll be sent to the sign-in page; click **New here? Create an account**.
+Open **http://127.0.0.1:8000** and click **New here? Create an account**.
 
-If you run from the parent `MINI_CLAUDE_CODE` repo root instead:
-
-```bash
-uvicorn Error_Log.server:app --reload
-```
+> Without a `JWT_SECRET` the server still starts locally, but uses a random key and prints a warning — everyone is signed out on each restart.
 
 ---
 
-## Usage
+## Using the app
 
 ### Accounts
 
-1. Open the site and click **New here? Create an account**.
-2. Pick a username (3–32 characters: letters, numbers, `_` `.` `-`) and a password (at least 8 characters). Usernames are case-insensitive: `Alice` and `alice` are the same account.
-3. **Create account & sign in** takes you straight to your (empty) error log.
-4. Your username is shown in the header. **Log out** signs you out on this browser.
-
-Sessions last 60 minutes by default (`JWT_EXPIRE_MINUTES`). When a session expires you're sent back to the sign-in page.
+- **Username:** 3–32 characters — letters, numbers, `_` `.` `-`. Case-insensitive: `Alice` and `alice` are the same account.
+- **Password:** at least 8 characters (at most 72 bytes, a bcrypt limit).
+- **Create account & sign in** registers and opens your empty log in one step.
+- Your username is shown in the header; **Log out** signs you out on this browser.
+- Sign-ins last 60 minutes by default (`JWT_EXPIRE_MINUTES`); then you're sent back to the sign-in page.
+- After 10 wrong passwords for the same username from the same address within 15 minutes, sign-in is blocked for that username until the window passes. One address is capped at 50 failures across all usernames.
 
 ### Error log
 
-1. Fill **Project Name**, **Title**, **Severity**, **Status**, **Error Details** on the left form. Add optional **Solution** and **Tags**.
-2. Click **Save Entry** — it appears instantly in the log list on the right.
-3. Use the **toolbar** to search (`title / project / error / solution`) and filter by project, status, severity, or sort order.
-4. On each card: **Edit**, **Copy** (to clipboard), **Delete**, and **Solve/Open** toggle.
-5. Header actions: **Export** (download JSON), **Import** (load JSON), **Clear all** (your entries only).
-
-### Database
-
-Both tables are created automatically on startup.
-
-**`users`**
-
-| Column          | Type | Notes |
-|-----------------|------|-------|
-| `id`            | TEXT | PK, 10-char hex (`uuid4`) |
-| `username`      | TEXT | Unique, case-insensitive (`COLLATE NOCASE`) |
-| `password_hash` | TEXT | bcrypt hash — the password itself is never stored |
-| `created_at`    | TEXT | ISO timestamp (UTC) |
-
-**`logs`**
-
-| Column     | Type | Notes |
-|------------|------|-------|
-| `id`       | TEXT | PK, 10-char hex (`uuid4`) |
-| `project`  | TEXT | e.g. `payment-service` |
-| `title`    | TEXT | Short issue title |
-| `severity` | TEXT | `low` / `medium` / `high` / `critical` |
-| `status`   | TEXT | `open` / `in-progress` / `solved` |
-| `error`    | TEXT | Stack trace / details |
-| `solution` | TEXT | Fix (optional) |
-| `tags`     | TEXT | JSON array string |
-| `date`     | TEXT | ISO date `YYYY-MM-DD` |
-| `user_id`  | TEXT | Owner — references `users.id`; deleting a user deletes their logs |
-
-An index on `(user_id, date)` keeps each person's list fast. New accounts start with an empty log.
-
-**Older databases:** if `server.py` finds an `app.db` from before accounts existed, it adds the `user_id` column on startup. Entries created before that have no owner and are not shown to anyone.
+1. Fill **Project Name**, **Title**, **Severity**, **Status**, **Error Details** on the left. Add an optional **Solution** and **Tags**.
+2. **Save Entry** — it appears instantly in the list on the right.
+3. Use the **toolbar** to search and filter by project, status, severity, or sort order.
+4. On each card: **Edit**, **Copy**, **Delete**, and **Solve / Open**.
+5. Header: **Export** (download JSON), **Import** (load JSON), **Clear all** (your entries only).
 
 ---
 
-## API Reference
+## Configuration
 
-Base URL: `http://127.0.0.1:8000`
+Set these in `.env` (local) or as environment variables (hosting platforms). Real environment variables take priority over `.env`.
 
-All responses are JSON. Interactive docs at `/docs` (Swagger — use **Authorize** to sign in) and `/redoc`.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | random per process, with a warning | **Required in production.** Signs login tokens. At least 32 characters; keep it secret and the same across restarts and deploys |
+| `ENVIRONMENT` | unset (`production` in Docker) | When `production`, the server refuses to start without `JWT_SECRET` |
+| `DATABASE_PATH` | `app.db` next to `server.py` (`/data/app.db` in Docker) | SQLite file location — must be on persistent storage in production |
+| `JWT_EXPIRE_MINUTES` | `60` | How long a sign-in lasts |
+| `LOGIN_MAX_FAILURES` | `10` | Failed sign-ins allowed per username + address within the window |
+| `LOGIN_MAX_FAILURES_PER_IP` | `50` | Failed sign-ins allowed per address across all usernames |
+| `LOGIN_WINDOW_SECONDS` | `900` | Length of the rate-limit window (15 minutes) |
+| `PORT` | `8000` | Port to listen on (Docker and `python server.py`); most platforms set this for you |
+| `HOST` | `127.0.0.1` | Bind address for `python server.py` (Docker always binds `0.0.0.0`) |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` (`*` in Docker) | Proxies whose `X-Forwarded-For` uvicorn trusts — needed so the rate limiter sees the real client address behind a platform's load balancer |
+
+---
+
+## API reference
+
+Interactive docs: **`/docs`** (Swagger — click **Authorize** to sign in) and **`/redoc`**.
 
 ### Authentication
 
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | `POST` | `/api/auth/register` | JSON `{"username", "password"}` | `201` `{"id", "username"}` · `409` username taken · `422` invalid input |
-| `POST` | `/api/auth/login` | **Form** fields `username`, `password` | `200` `{"access_token", "token_type": "bearer"}` · `401` wrong username or password |
+| `POST` | `/api/auth/login` | **Form** fields `username`, `password` | `200` `{"access_token", "token_type": "bearer"}` · `401` wrong username or password · `429` too many failures (`Retry-After` header in seconds) |
 | `GET`  | `/api/auth/me` | — | `200` `{"id", "username"}` |
 
 Send the token on every log request:
@@ -185,24 +187,24 @@ Missing, invalid, or expired tokens get `401` with `WWW-Authenticate: Bearer`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/logs` | List your logs (ordered by `date DESC`) |
-| `POST` | `/api/logs` | Create a log → `201` + created object |
+| `GET` | `/api/logs` | List your logs, newest date first |
+| `POST` | `/api/logs` | Create a log → `201` |
 | `PUT` | `/api/logs/{id}` | Replace one of your logs |
-| `PATCH` | `/api/logs/{id}/toggle` | Toggle `solved` ↔ `open` |
+| `PATCH` | `/api/logs/{id}/toggle` | `solved` → `open`; anything else → `solved` |
 | `DELETE` | `/api/logs/{id}` | Delete one of your logs |
 | `DELETE` | `/api/logs` | Delete **all of your** logs |
 
-Another user's log id behaves exactly like one that doesn't exist: `404 Not found`.
+`project`, `title`, and `error` must be non-empty on create and update (`400` otherwise). Another user's log id behaves exactly like one that doesn't exist: `404`.
 
 ### Public
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Health check → `{"status":"ok"}` |
-| `GET` | `/` | Error log page (`index.html`) |
-| `GET` | `/login` | Sign-in page (`login.html`) |
+| `GET` | `/api/health` | `{"status": "ok"}` — used by the Docker health check |
+| `GET` | `/` | Error log page |
+| `GET` | `/login` | Sign-in page |
 
-### Example — sign up, sign in, create a log
+### Example
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/auth/register \
@@ -216,113 +218,156 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/auth/login \
 curl -X POST http://127.0.0.1:8000/api/logs \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "project": "api-v2",
-    "title": "Prisma P1001: Can'\''t reach database on Docker",
-    "severity": "critical",
-    "status": "open",
-    "error": "Error: P1001: Can'\''t reach database server at db:5432",
-    "solution": "",
-    "tags": ["prisma","docker","postgres"],
-    "date": "2026-10-01"
-  }'
-```
+  -d '{"project": "api-v2", "title": "Prisma P1001 on Docker", "severity": "critical",
+       "error": "P1001: Can'\''t reach database server at db:5432", "tags": ["prisma", "docker"]}'
 
-### Example — list / toggle / delete
-
-```bash
 curl http://127.0.0.1:8000/api/logs -H "Authorization: Bearer $TOKEN"
-curl -X PATCH http://127.0.0.1:8000/api/logs/<id>/toggle -H "Authorization: Bearer $TOKEN"
-curl -X DELETE http://127.0.0.1:8000/api/logs/<id> -H "Authorization: Bearer $TOKEN"
 ```
-
-`project`, `title`, and `error` are required when creating a log (non-empty after trim).
 
 ---
 
-## Configuration
+## Database
 
-Set these in `.env` (see `.env.example`) or as real environment variables, which take priority.
+Tables are created on startup; there's nothing to migrate by hand.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JWT_SECRET` | random per process (with a warning) | Key that signs login tokens. **Set it** — at least 32 characters, kept secret, same across restarts |
-| `JWT_EXPIRE_MINUTES` | `60` | How long a sign-in lasts |
-| `DATABASE_PATH` | `<BASE_DIR>/app.db` (`app.db` next to `server.py`) | Override SQLite file location |
+**`users`** — `id` (PK), `username` (unique, case-insensitive), `password_hash` (bcrypt — the password itself is never stored), `created_at`.
 
-```bash
-# custom DB path + secret
-JWT_SECRET=... DATABASE_PATH=/data/my-logs.db uvicorn server:app --host 0.0.0.0 --port 8000
-```
+**`logs`** — `id` (PK), `project`, `title`, `severity` (`low`/`medium`/`high`/`critical`), `status` (`open`/`in-progress`/`solved`), `error`, `solution`, `tags` (JSON array), `date` (`YYYY-MM-DD`), `user_id` (owner → `users.id`; deleting a user deletes their logs). Indexed on `(user_id, date)`.
 
-`server.py` resolves `app.db`, `index.html` and `login.html` via `BASE_DIR = os.path.dirname(__file__)` — no matter where you run it from.
+If the server finds a database from before accounts existed, it adds `user_id` on startup. Those older entries have no owner and aren't shown to anyone.
 
 ---
 
-## Tests and Checks
+## Tests and CI
 
 ```bash
-pip install -r requirements-dev.txt   # or: pip install -e .[dev]
-
-# full test suite — every test uses its own temporary database
-python -m pytest
+pip install -r requirements-dev.txt
+python -m pytest            # full suite; every test uses its own temporary database
+python check_backend.py     # offline smoke check
+python live_server_check.py # starts a real server on :8001 and checks it over HTTP
 ```
 
-The suite covers password hashing, token validation (expired, tampered, unsigned, missing claims), registration and login rules, and that users can never see or change each other's logs.
+The suite covers password hashing, token validation (expired, tampered, unsigned, missing claims), registration and login rules, rate limiting, and that users can never see or change each other's logs.
 
-Quick smoke checks, also on temporary databases:
+**GitHub Actions** (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request:
 
-```bash
-# offline — FastAPI TestClient: tables, public routes, sign-up, sign-in, CRUD, isolation
-python check_backend.py
+1. installs the pinned dependencies, runs `pytest` and `check_backend.py`;
+2. builds the Docker image, checks it refuses to start without `JWT_SECRET`, then starts it and waits for a healthy health check.
 
-# live — spawns uvicorn on 127.0.0.1:8001 and runs the same flow over HTTP
-python live_server_check.py
-```
+**Dependabot** opens weekly pull requests to bump the pinned Python packages, the base image, and the Actions versions; CI tests each one before you merge.
 
-Both exit with code `1` if any check fails. `check_backend.py` forces UTF-8 on Windows so output doesn't crash on `cp1252` consoles.
+---
+
+## Push to GitHub
+
+1. Create an **empty** repository on GitHub (no README, `.gitignore`, or license — this project already has them).
+2. Push:
+
+   ```bash
+   git remote add origin https://github.com/<your-username>/<repo-name>.git
+   git push -u origin main
+   ```
+
+3. Open the **Actions** tab to watch the first CI run.
+
+Before pushing, `git status` should show no `app.db`, `app.db.bak`, or `.env` — they are ignored on purpose. Never commit your real `JWT_SECRET`.
 
 ---
 
 ## Deployment
 
-Always set `JWT_SECRET` in production. Every worker and every restart must use the same value.
+### Checklist
 
-### Any VPS (systemd / pm2 / Docker)
+- [ ] **`JWT_SECRET`** set as a secret/environment variable on the platform (at least 32 random characters). The container won't start without it.
+- [ ] **Persistent disk/volume mounted at `/data`.** Without one, every account and log is lost on each redeploy or restart.
+- [ ] **One instance.** SQLite has a single writer and the sign-in limiter lives in memory — don't scale horizontally.
+- [ ] **Health check path** `/api/health` (if the platform asks).
+- [ ] **HTTPS** — all the platforms below provide it automatically; never serve sign-ins over plain HTTP.
 
-```bash
-pip install -r requirements.txt
-export JWT_SECRET=...   # at least 32 random characters
-uvicorn server:app --host 0.0.0.0 --port 8000
-```
+The image listens on `$PORT` (default `8000`), stores data in `/data/app.db`, and runs the server as an unprivileged user. Platforms that set `PORT` themselves work without changes.
 
-SQLite allows one writer at a time, so a single worker is the safe default.
-
-### Docker (example)
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY server.py index.html login.html ./
-# app.db is auto-created on first run; mount a volume to persist it
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+### Docker (any server or VPS)
 
 ```bash
 docker build -t error-log-book .
-docker run -p 8000:8000 -v ./data:/app/data \
-  -e DATABASE_PATH=/app/data/app.db \
-  -e JWT_SECRET=... \
+docker volume create error-log-data
+
+docker run -d --name error-log-book --restart unless-stopped \
+  -p 8000:8000 \
+  -v error-log-data:/data \
+  -e JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" \
   error-log-book
 ```
 
-### Render / Railway / Fly.io
+Store that secret somewhere safe; reusing it on the next `docker run` keeps everyone signed in. Put a reverse proxy with HTTPS (Caddy, nginx, Traefik) in front of port 8000.
 
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT`
-- Environment: set `JWT_SECRET`; set `DATABASE_PATH` to a persistent disk path so accounts and logs survive redeploys.
+### Render
+
+1. **New → Web Service**, connect the GitHub repo. Render detects the `Dockerfile`.
+2. **Environment:** add `JWT_SECRET`.
+3. **Disks:** add a disk with mount path `/data` (requires a paid instance type — on the free type your data is wiped on every deploy).
+4. **Health check path:** `/api/health`.
+
+### Railway
+
+1. **New Project → Deploy from GitHub repo.** Railway detects the `Dockerfile`.
+2. **Variables:** add `JWT_SECRET`.
+3. Add a **Volume** to the service, mounted at `/data`.
+4. **Settings → Networking → Generate Domain.**
+
+### Fly.io
+
+```bash
+fly launch --no-deploy                 # detects the Dockerfile and writes fly.toml
+fly volumes create error_log_data --size 1
+fly secrets set JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+```
+
+In `fly.toml`, make sure `internal_port = 8000` and add:
+
+```toml
+[mounts]
+  source = "error_log_data"
+  destination = "/data"
+```
+
+Then `fly deploy`, and keep a single machine: `fly scale count 1`.
+
+### Updating
+
+Push to `main`. CI runs; Render and Railway redeploy automatically from GitHub (Fly: run `fly deploy`). The database on the volume is kept, and tables are upgraded on startup.
+
+### Backups
+
+Your data is one file. To take a consistent copy while the app is running:
+
+```bash
+docker exec error-log-book python -c "import sqlite3; sqlite3.connect('/data/app.db').backup(sqlite3.connect('/data/backup.db'))"
+docker cp error-log-book:/data/backup.db ./backup-$(date +%F).db
+```
+
+On a platform, run the same `python -c ...` command from its shell/console.
+
+---
+
+## Security
+
+What's in place:
+
+- Passwords are hashed with bcrypt (per-password salt); plain passwords are never stored or logged.
+- Tokens are HS256 JWTs with an expiry; the algorithm is pinned, so unsigned or re-signed tokens are rejected.
+- Every log query is scoped to the signed-in user; other users' entries return `404`.
+- Wrong password and unknown username give the same response and take the same time.
+- Repeated failed sign-ins are rate-limited per username + address and per address.
+- The container runs as a non-root user and refuses to start without `JWT_SECRET`.
+- The database and secrets are git-ignored and excluded from the Docker image.
+
+Known limitations:
+
+- Tokens are kept in the browser's `localStorage`, so a cross-site-scripting bug could expose them. All user content is HTML-escaped before rendering.
+- There's no password reset or account deletion in the UI yet.
+- Registration isn't rate-limited, so automated sign-ups are possible.
+- The sign-in limiter is per process and resets on restart.
 
 ---
 
@@ -330,21 +375,23 @@ docker run -p 8000:8000 -v ./data:/app/data \
 
 | Problem | Fix |
 |---------|-----|
-| Everyone gets signed out after a restart | `JWT_SECRET` isn't set, so a new random key is used each start. Put a fixed value in `.env` |
-| Server won't start: `JWT_SECRET must be at least 32 characters long` | Use a longer secret, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `409 Username already taken` | Usernames are case-insensitive — `Alice` and `alice` are the same name |
-| Old entries disappeared after upgrading | They were created before accounts existed and have no owner. They're still in `app.db` but not shown to anyone |
-| `app.db` not found after `git clone` | Normal — it's ignored by git and auto-created on first run |
-| `address already in use :8000` | `uvicorn server:app --port 8001` or `lsof -i :8000` / `netstat -ano \| findstr 8000` |
-| `pytest` not recognized on Windows | Run `python -m pytest` instead — pip installs `pytest.exe` to a folder that may not be on `PATH` |
-| Windows `charmap` / `UnicodeEncodeError` | Fixed — `check_backend.py` reconfigures stdout to UTF-8 |
-| Page keeps sending you to the sign-in page | Make sure `uvicorn server:app` is running and you're opening `http://127.0.0.1:8000` (not `file://`) |
+| Container exits with `JWT_SECRET must be set when ENVIRONMENT=production` | Set `JWT_SECRET` on the platform or with `docker run -e JWT_SECRET=...` |
+| `JWT_SECRET must be at least 32 characters long` | Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| Everyone gets signed out after a restart | `JWT_SECRET` isn't fixed. Locally put it in `.env`; on a platform set it as a variable |
+| Accounts and logs disappear after a deploy | No persistent volume at `/data` — see the [deployment checklist](#checklist) |
+| `429 Too many failed sign-in attempts` | Wait for the time shown, or restart the server to clear the limiter |
+| Everyone gets `429` at once behind a proxy | The proxy isn't trusted, so all requests look like one address. Set `FORWARDED_ALLOW_IPS` to the proxy's address (Docker already uses `*`) |
+| `409 Username already taken` | Usernames are case-insensitive — `Alice` and `alice` are the same |
+| Old entries vanished after upgrading | They predate accounts and have no owner; they're still in the database file |
+| `address already in use :8000` | `uvicorn server:app --port 8001`, or find the process: `netstat -ano \| findstr 8000` (Windows) / `lsof -i :8000` |
+| `pytest` not recognized on Windows | Run `python -m pytest` |
+| Page keeps sending you to the sign-in page | Make sure the server is running and you're on `http://127.0.0.1:8000`, not a `file://` URL |
 
 ---
 
 ## License
 
-MIT — use it for personal or commercial projects, no attribution required.
+[MIT](LICENSE) © 2026 Emmanuel Albert
 
 ---
 

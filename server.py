@@ -1,9 +1,13 @@
 import json
 import logging
+import math
 import os
 import secrets
 import sqlite3
+import threading
+import time
 import uuid
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date as date_type, datetime, timedelta, timezone
 from typing import Optional, List
@@ -11,7 +15,7 @@ from typing import Optional, List
 import bcrypt
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -37,6 +41,8 @@ PASSWORD_MAX_BYTES = 72  # bcrypt rejects anything longer
 def load_jwt_secret() -> str:
     secret = os.getenv("JWT_SECRET", "")
     if not secret:
+        if os.getenv("ENVIRONMENT", "").lower() == "production":
+            raise RuntimeError("JWT_SECRET must be set when ENVIRONMENT=production")
         logger.warning("JWT_SECRET is not set; using a random key. Tokens will stop working when the server restarts.")
         return secrets.token_urlsafe(48)
     if len(secret) < JWT_MIN_SECRET_LENGTH:
@@ -44,6 +50,57 @@ def load_jwt_secret() -> str:
     return secret
 
 JWT_SECRET = load_jwt_secret()
+
+# ---------- Login rate limiting ----------
+# In-memory, so it applies per process: run a single worker (SQLite needs that anyway).
+LOGIN_MAX_FAILURES = int(os.getenv("LOGIN_MAX_FAILURES", "10"))
+LOGIN_MAX_FAILURES_PER_IP = int(os.getenv("LOGIN_MAX_FAILURES_PER_IP", "50"))
+LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
+
+_clock = time.monotonic
+_login_failures: dict[str, deque] = defaultdict(deque)
+_login_lock = threading.Lock()
+
+def _login_keys(ip: str, username: str) -> dict[str, int]:
+    # Keyed on IP + username so nobody can lock a user out from elsewhere,
+    # plus a looser per-IP cap against trying many usernames.
+    return {f"pair:{ip}:{username.strip().lower()}": LOGIN_MAX_FAILURES, f"ip:{ip}": LOGIN_MAX_FAILURES_PER_IP}
+
+def _prune(key: str, now: float) -> deque:
+    attempts = _login_failures[key]
+    while attempts and attempts[0] <= now - LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+    if not attempts:
+        del _login_failures[key]
+        return deque()
+    return attempts
+
+def login_retry_after(ip: str, username: str) -> int:
+    """Seconds until another attempt is allowed, or 0 if allowed now."""
+    now = _clock()
+    wait = 0.0
+    with _login_lock:
+        for key, limit in _login_keys(ip, username).items():
+            attempts = _prune(key, now)
+            if len(attempts) >= limit:
+                wait = max(wait, attempts[len(attempts) - limit] + LOGIN_WINDOW_SECONDS - now)
+    return math.ceil(wait)
+
+LOGIN_TRACKED_KEYS_SWEEP = 10_000
+
+def record_login_failure(ip: str, username: str):
+    now = _clock()
+    with _login_lock:
+        if len(_login_failures) > LOGIN_TRACKED_KEYS_SWEEP:
+            for key in list(_login_failures):
+                _prune(key, now)
+        for key in _login_keys(ip, username):
+            _login_failures[key].append(now)
+
+def clear_login_failures(ip: str, username: str):
+    pair_key = next(iter(_login_keys(ip, username)))
+    with _login_lock:
+        _login_failures.pop(pair_key, None)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -233,10 +290,18 @@ def register(payload: RegisterIn):
     return UserOut(id=user_id, username=payload.username)
 
 @app.post("/api/auth/login", response_model=TokenOut)
-def login(form: OAuth2PasswordRequestForm = Depends()):
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends()):
+    ip = request.client.host if request.client else "unknown"
+    retry_after = login_retry_after(ip, form.username)
+    if retry_after:
+        minutes = max(1, math.ceil(retry_after / 60))
+        raise HTTPException(429, f"Too many failed sign-in attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.",
+                            headers={"Retry-After": str(retry_after)})
     user = authenticate_user(form.username, form.password)
     if not user:
+        record_login_failure(ip, form.username)
         raise HTTPException(401, "Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
+    clear_login_failures(ip, form.username)
     return TokenOut(access_token=create_access_token(user.id))
 
 @app.get("/api/auth/me", response_model=UserOut)
@@ -325,3 +390,10 @@ def serve_login():
     if os.path.exists(LOGIN_PATH):
         return FileResponse(LOGIN_PATH)
     return {"detail": "login.html not found"}
+
+def main():
+    import uvicorn
+    uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000")))
+
+if __name__ == "__main__":
+    main()

@@ -11,6 +11,13 @@ from fastapi.testclient import TestClient
 import server
 
 
+@pytest.fixture(autouse=True)
+def reset_login_limiter():
+    server._login_failures.clear()
+    yield
+    server._login_failures.clear()
+
+
 @pytest.fixture
 def db_path(tmp_path, monkeypatch):
     path = str(tmp_path / "test.db")
