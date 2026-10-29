@@ -1,6 +1,6 @@
 # Exact versions the test suite passes with; used by Docker and CI.
 # Version ranges for development live in pyproject.toml.
-fastapi==0.141.1
+fastapi==0.162.0
 uvicorn==0.48.0
 bcrypt==5.0.0
 PyJWT==2.15.1
