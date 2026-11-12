@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 # ENVIRONMENT=production makes the server refuse to start without JWT_SECRET.
 # FORWARDED_ALLOW_IPS lets uvicorn read the client IP from the hosting
